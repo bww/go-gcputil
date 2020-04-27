@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/url"
 	"os"
+	"strings"
 
 	"golang.org/x/oauth2/google"
 )
@@ -31,7 +32,7 @@ func Credentials(dsn string, scopes ...string) (*google.Credentials, *Context, e
 	}
 
 	var creds *google.Credentials
-	if v := u.Query().Get("credentials"); v != "" {
+	if v := strings.TrimSpace(u.Query().Get("credentials")); v != "" {
 		data, err := base64.StdEncoding.DecodeString(v)
 		if err != nil {
 			return nil, nil, err
@@ -40,8 +41,17 @@ func Credentials(dsn string, scopes ...string) (*google.Credentials, *Context, e
 		if err != nil {
 			return nil, nil, err
 		}
-	} else if v = os.Getenv(credsEnvVar); v != "" {
-		creds, err = google.CredentialsFromJSON(context.Background(), []byte(v), scopes...)
+	} else if v = strings.TrimSpace(os.Getenv(credsEnvVar)); v != "" {
+		var data []byte
+		if v[0] == '{' {
+			data = []byte(v)
+		} else {
+			data, err = base64.StdEncoding.DecodeString(v)
+			if err != nil {
+				return nil, nil, err
+			}
+		}
+		creds, err = google.CredentialsFromJSON(context.Background(), data, scopes...)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -50,15 +60,16 @@ func Credentials(dsn string, scopes ...string) (*google.Credentials, *Context, e
 		if err != nil {
 			return nil, nil, err
 		}
-	}
 	if creds == nil {
 		return nil, nil, ErrUnauthorized
 	}
 
 	context := &Context{}
-	err = json.Unmarshal(creds.JSON, context)
-	if err != nil {
-		return nil, nil, err
+	if len(creds.JSON) > 0 {
+		err = json.Unmarshal(creds.JSON, context)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	return creds, context, nil
