@@ -60,6 +60,7 @@ func Credentials(dsn string, scopes ...string) (*google.Credentials, *Context, e
 		if err != nil {
 			return nil, nil, err
 		}
+	}
 	if creds == nil {
 		return nil, nil, ErrUnauthorized
 	}
